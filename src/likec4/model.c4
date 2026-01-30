@@ -1,0 +1,77 @@
+model {
+  user = actor 'User' {
+    description 'Un utilisateur de mon système logiciel'
+
+    -> frontEnd 'Utilise'
+  }
+
+  frontEnd = system 'Frontend Application' {
+    description 'Le front end'
+
+    -> orchestrateur.serviceRecueilPiece
+    -> collecteur
+  }
+
+  orchestrateur = system 'Orchestrateur' {
+    description 'Le système qui orchestre les services backend'
+
+    mainApi = api 'API Orchestrateur'
+    {
+      icon: tech:java
+
+      serviceRecueilPiece = service 'Service d\'orchestration de recueil de pièces'
+      {
+        description 'Service qui orchestre le recueil des pièces justificatives'
+      }
+
+      serviceSignatureElectronique = service 'Service de signature électronique'
+      {
+        description 'Service qui gère la signature électronique des documents'
+      }
+      
+
+      -> mainDatabase 'Stocke/Lit des informations'
+
+      -> eligibilite
+      -> collecteur
+      -> systemClient
+      -> fileKafka 'Consomme la notification de complétion de la collecte des pièces'
+
+      
+    }
+
+    mainDatabase = database 'Database Orchestrateur'
+    {
+      icon: tech:sqlite
+    }
+  }
+
+  eligibilite = system 'Service d\'éligibilité' {
+    description 'Service qui détermine l\'éligibilité des utilisateurs'
+
+  }
+
+  collecteur = system 'Service de collecte de pièces' {
+    description 'Service qui collecte les pièces utilisateur'
+
+    -> ocr
+    -> fileKafka 'Produit la complétion de la collecte des pièces'
+    -> fileKafka 'Consomme la notification de la complétion des résultats OCR'
+  }
+
+  ocr = externalSystem 'Service OCR' {
+    description 'Service externe (SaaS) de reconnaissance optique de caractères, extraction de texte et champs structurés à partir des pièces.'
+
+    -> fileKafka 'Produit les résultats OCR'
+  }
+
+  systemClient = system 'Système de données clients' {
+    description 'La base de données contenant les informations des clients et les services associés'
+  }
+
+  fileKafka = kafka 'Kafka Queue' {
+    description 'Cluster Kafka pour échanges asynchrones.'
+
+  }
+  
+}

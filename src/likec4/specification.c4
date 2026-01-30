@@ -1,0 +1,40 @@
+specification {
+  element actor {
+    style {
+      shape person
+      color green
+    }
+  }
+  element system
+
+  element externalSystem {
+    style {
+      color amber
+    }
+  }
+
+  element kafka {
+    style {
+      shape queue
+    }
+  }
+
+  element api {
+    
+  }
+
+  element database { 
+    style {
+      shape storage
+      color red
+    }
+  }
+
+  element service {
+      style {
+          opacity 40%
+          color: indigo
+          icon azure:application-gateways
+      }
+  }
+}

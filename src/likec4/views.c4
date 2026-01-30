@@ -1,0 +1,147 @@
+views {
+  view index {
+    title 'Landscape'
+    include *
+  }
+
+  dynamic view CasPassant {
+    title 'Cas d\'usage / Collecte pièce justificative / Vue dynamique du cas passant'
+    description 'Ce diagramme montre le flux d\'événements pour un cas passant typique.'
+    
+    user -> frontEnd 'Se connecte à'
+    frontEnd -> orchestrateur 'Crée une nouvelle demande'
+    orchestrateur -> eligibilite 'Vérifie l\'éligibilité de l\'utilisateur' 
+    orchestrateur <- eligibilite 'Éligible'
+
+    orchestrateur -> collecteur 'Crée un dossier de collecte de pièces'
+    orchestrateur <- collecteur 'Dossier créé'
+    {
+        notes: 'Retour: Id du dossier de collecte'
+    }
+
+    frontEnd <- orchestrateur 'Retour OK'
+    {
+        notes: 'Retour: Id de la demande + id dossier de collecte'
+    }
+
+    frontEnd -> collecteur 'Chargement d\'un widget de collecte de pièces'
+
+    user -> collecteur 'Soumet les pièces demandées'
+
+    collecteur -> ocr 'Envoie les pièces pour reconnaissance optique de caractères'
+
+    ocr -> ocr 'Traitement des pièces'
+    {
+        notes: 'Asynchrone'
+    }
+
+    ocr -> fileKafka 'Retour des résultats OCR'
+    fileKafka -> collecteur 'Consommation des résultats OCR'
+
+    collecteur -> fileKafka 'Notification de la complétion de la collecte des pièces'
+    fileKafka -> orchestrateur 'Consommation de la notification de complétion'
+
+    orchestrateur -> systemClient 'Mise à jour des informations client'
+    orchestrateur -> collecteur 'Fermeture du dossier de collecte'
+
+    parallel {
+        orchestrateur -> frontEnd 'Notification de la complétion du traitement'
+        orchestrateur -> orchestrateur 'Archivage de la demande'
+    }
+
+    frontEnd -> user 'Notification de la complétion du traitement'
+  }
+
+  // Sous-processus: Demande & Éligibilité
+  dynamic view vDemandeEtEligibilite {
+    title 'Cas d\'usage / sous vues / vDemandeEtEligibilite'
+    frontEnd -> orchestrateur 'Création de la demande'
+    orchestrateur -> eligibilite 'Contrôle d\'éligibilité'
+    eligibilite -> orchestrateur 'Résultat d\'éligibilité'
+  }
+
+  // Sous-processus: Ouverture du dossier de collecte
+  dynamic view vOuvertureDossierCollecte {
+    title 'Cas d\'usage / sous vues / vOuvertureDossierCollecte'
+    orchestrateur -> collecteur 'Ouverture du dossier de collecte'
+    collecteur -> orchestrateur 'Dossier de collecte ouvert'
+    orchestrateur -> frontEnd 'Références demande + dossier de collecte'
+  }
+
+  // Sous-processus: Collecte des pièces et OCR
+  dynamic view vCollecteEtOCR {
+    title 'Cas d\'usage / sous vues / vCollecteEtOCR'
+    frontEnd -> collecteur 'Chargement du module de collecte'
+    user -> collecteur 'Soumission des pièces demandées'
+    collecteur -> ocr 'Envoi des pièces à OCR'
+    ocr -> ocr 'Traitement des pièces (asynchrone)'
+    ocr -> fileKafka 'Résultats OCR'
+    fileKafka -> collecteur 'Consommation des résultats OCR'
+  }
+
+  // Sous-processus: Finalisation (jusqu'à mise à jour client)
+  dynamic view vFinalisationMajClient {
+    title 'Cas d\'usage / sous vues / vFinalisationMajClient'
+    collecteur -> fileKafka 'Notification collecte complète'
+    fileKafka -> orchestrateur 'Complétion de collecte reçue'
+    orchestrateur -> systemClient 'Mise à jour des informations client'
+  }
+
+  // Sous-processus: Clôture et notification
+  dynamic view vClotureEtNotification {
+    title 'Cas d\'usage / sous vues / vClotureEtNotification'
+    orchestrateur -> collecteur 'Fermeture du dossier de collecte'
+    parallel {
+      orchestrateur -> frontEnd 'Notification de fin de traitement'
+      orchestrateur -> orchestrateur 'Archivage de la demande'
+    }
+    frontEnd -> user 'Information de complétion du traitement'
+  }
+
+  // Vue synthétique du cas passant, regroupant les sous-parties
+  dynamic view CasPassantSynthese {
+    title 'Cas d\'usage / Collecte pièce justificative / Vue synthétique du cas passant'
+    description 'Synthèse des étapes majeures du parcours CasPassant, avec navigation vers les vues de sous-processus.'
+
+    user -> frontEnd 'Connexion et accès au parcours'
+
+    frontEnd -> orchestrateur 'Éligibilité + Création demande' {
+      navigateTo vDemandeEtEligibilite
+    }
+
+    orchestrateur -> frontEnd 'Ouverture dossier + références' {
+      navigateTo vOuvertureDossierCollecte
+    }
+
+    frontEnd -> collecteur 'Collecte des pièces + OCR' {
+      navigateTo vCollecteEtOCR
+    }
+
+    orchestrateur -> systemClient 'Mise à jour info client' {
+      navigateTo vFinalisationMajClient
+    }
+
+    orchestrateur -> frontEnd 'Clôture + notification' {
+      navigateTo vClotureEtNotification
+    }
+  }
+
+  view orchestrateurCore of orchestrateur {
+    title 'Squads / Orchestrateur / Orchestrateur Core'
+    include 
+      orchestrateur,
+      orchestrateur.*,
+      orchestrateur._
+  }
+
+  view orchestrateurWithRelations of orchestrateur {
+  title 'Squads / Orchestrateur / Orchestrateur avec relations'
+  include 
+    orchestrateur,
+    orchestrateur.*,
+    orchestrateur.**,
+    orchestrateur._,
+    * <-> orchestrateur
+  }
+
+}
